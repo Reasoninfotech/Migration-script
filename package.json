@@ -9,6 +9,7 @@
     "migrate:metaobjects": "node migrate-metaobjects.js",
     "migrate:products": "node migrate-products.js",
     "migrate:collections": "node migrate-collections.js",
-    "migrate:all": "node run-all.js"
+    "migrate:all": "node run-all.js",
+    "dev": "node local-server.js"
   }
 }

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Store Data Migration Hub</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="glowing-orb orb-1"></div>
+    <div class="glowing-orb orb-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <i data-lucide="shuffle" class="logo-icon"></i>
+                <div class="brand-text">
+                    <h1>Reason Infotech</h1>
+                    <span>Shopify Data Migration Hub</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button type="button" id="btn-toggle-guide" class="btn btn-secondary btn-guide">
+                    <i data-lucide="book-open"></i> Setup Guide
+                </button>
+                <div class="connection-status-pill" id="global-status-pill">
+                    <span class="pulse-dot"></span>
+                    <span id="status-text">Idle</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="app-content">
+            <!-- Form Card Config -->
+            <form id="migration-form" class="config-form">
+                <div class="config-grid">
+                    <!-- Source Store Card -->
+                    <div class="glass-card card-source">
+                        <div class="card-header">
+                            <div class="card-icon-wrapper source-bg">
+                                <i data-lucide="arrow-up-right" class="card-icon"></i>
+                            </div>
+                            <div>
+                                <h2>Source Store</h2>
+                                <p>Exporting metaobjects, products & collections</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="input-group">
+                                <label for="source-shop">
+                                    <i data-lucide="store" class="field-icon"></i> Store Domain
+                                </label>
+                                <input type="text" id="source-shop" placeholder="your-source-store.myshopify.com" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="source-token">
+                                    <i data-lucide="key" class="field-icon"></i> Admin API Access Token
+                                </label>
+                                <div class="password-wrapper">
+                                    <input type="password" id="source-token" placeholder="shpat_..." required>
+                                    <button type="button" class="btn-toggle-pass" tabindex="-1">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Store Card -->
+                    <div class="glass-card card-target">
+                        <div class="card-header">
+                            <div class="card-icon-wrapper target-bg">
+                                <i data-lucide="arrow-down-right" class="card-icon"></i>
+                            </div>
+                            <div>
+                                <h2>Target Store</h2>
+                                <p>Importing and matching Shopify resources</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="input-group">
+                                <label for="target-shop">
+                                    <i data-lucide="store" class="field-icon"></i> Store Domain
+                                </label>
+                                <input type="text" id="target-shop" placeholder="your-target-store.myshopify.com" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="target-token">
+                                    <i data-lucide="key" class="field-icon"></i> Admin API Access Token
+                                </label>
+                                <div class="password-wrapper">
+                                    <input type="password" id="target-token" placeholder="shpat_..." required>
+                                    <button type="button" class="btn-toggle-pass" tabindex="-1">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run Control Panel -->
+                <div class="action-bar">
+                    <button type="submit" id="btn-submit" class="btn btn-primary btn-run">
+                        <i data-lucide="play-circle"></i> Run Store Migration
+                    </button>
+                    <button type="button" id="btn-reset-cache" class="btn btn-secondary btn-reset-cache" title="Reset Migration Memory Cache (Deletes id-mappings.json)">
+                        <i data-lucide="refresh-cw"></i> Reset Cache
+                    </button>
+                    <button type="button" id="btn-clear" class="btn btn-secondary">
+                        <i data-lucide="trash-2"></i> Clear Terminal
+                    </button>
+                </div>
+            </form>
+
+            <!-- Interactive Terminal Card -->
+            <div class="glass-card terminal-card">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <span class="dot dot-red"></span>
+                        <span class="dot dot-yellow"></span>
+                        <span class="dot dot-green"></span>
+                    </div>
+                    <div class="terminal-title">
+                        <i data-lucide="terminal"></i> Live Execution Terminal
+                    </div>
+                    <div class="terminal-actions">
+                        <span class="terminal-connection" id="terminal-conn-status">Disconnected</span>
+                        <button id="btn-copy" class="terminal-action-btn" title="Copy Terminal Content">
+                            <i data-lucide="copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <div class="terminal-line system-msg">💡 Terminal initialized. Please configure credentials and click "Run Store Migration" to start.</div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <p>Powered by Node.js & Shopify Admin API. Secure local credentials storage enabled.</p>
+        </footer>
+    </div>
+
+    <!-- Sliding Setup Guide Drawer -->
+    <div class="guide-backdrop" id="guide-backdrop"></div>
+    <div class="guide-drawer" id="guide-drawer">
+        <div class="drawer-header">
+            <div class="drawer-header-title">
+                <i data-lucide="book-open" class="drawer-logo-icon"></i>
+                <div>
+                    <h3>Setup Guide & Steps</h3>
+                    <p>How to configure your Shopify custom apps</p>
+                </div>
+            </div>
+            <button type="button" id="btn-close-guide" class="btn-close-drawer">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="drawer-body">
+            <!-- Step 1 -->
+            <div class="step-card">
+                <div class="step-badge">01</div>
+                <div class="step-content">
+                    <h4>Create Custom App in Shopify on source Store</h4>
+                    <p>Log in to your Shopify store admin panel, navigate to <strong>Settings > Apps and sales channels > Develop apps</strong>. Click on <strong>Create an app</strong> and name it (e.g. "Data Migration").<strong>Make sure this thing to do on both Store</strong></p>
+                    <div class="step-image-container">
+                        <img src="assets/image/step-1.png" alt="Step 1 Screenshot" class="step-screenshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="step-card">
+                <div class="step-badge">02</div>
+                <div class="step-content">
+                    <h4>Configure Admin API Scopes</h4>
+                    <p>Open your new app, click <strong>Configuration > Configure Admin API integration</strong>, and select the scopes you need. Ensure you select <strong>write</strong> and <strong>read</strong> permissions for metaobjects, files, products, and collections.<strong>Make sure this thing to do on both Store</strong></p>
+                    <div class="step-image-container">
+                        <img src="assets/image/step-2.png" alt="Step 2 Screenshot" class="step-screenshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="step-card">
+                <div class="step-badge">03</div>
+                <div class="step-content">
+                    <h4>Generate & Copy Access Token</h4>
+                    <p>Go to the <strong>API credentials</strong> tab and click <strong>Install app</strong>. Under the <em>Admin API access token</em> section, click <strong>Reveal token once</strong> and copy it (it will start with <code>shpat_</code>).<strong>Make sure this thing to do on both Store</strong></p>
+                    <div class="step-image-container">
+                        <img src="assets/image/step-3.png" alt="Step 3 Screenshot" class="step-screenshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="step-card">
+                <div class="step-badge">04</div>
+                <div class="step-content">
+                    <h4>Paste Credentials & Migrate</h4>
+                    <p>Paste the revealed tokens into the Source and Target fields, check that your store subdomains are accurate, and click <strong>Run Store Migration</strong> to launch the migration!</p>
+                    <div class="step-image-container">
+                        <img src="assets/image/step-4.png" alt="Step 4 Screenshot" class="step-screenshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div class="lightbox-modal" id="lightbox-modal">
+        <button type="button" class="btn-close-lightbox" id="btn-close-lightbox">
+            <i data-lucide="x"></i>
+        </button>
+        <div class="lightbox-content">
+            <img src="" alt="Enlarged Screenshot" id="lightbox-img">
+        </div>
+    </div>
+
+    <!-- App JavaScript -->
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
