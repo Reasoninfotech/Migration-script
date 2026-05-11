@@ -30,54 +30,48 @@ sendLogEvent('status', ['state' => 'running', 'message' => 'Spawning migration p
 
 // Try to locate Node.js executable on the system dynamically (especially for Hostinger shared hosting environments)
 function findNodeBinary() {
-    // 1. Try standard command lookups (non-Windows)
-    if (strpos(strtolower(PHP_OS), 'win') === false) {
-        $whichNode = shell_exec('which node 2>/dev/null');
-        if ($whichNode) {
-            $path = trim($whichNode);
-            if (!empty($path) && file_exists($path) && is_executable($path)) {
-                return $path;
-            }
-        }
-    }
+    // 1. Gather all possible paths to check
+    $paths = [];
 
-    // 2. Check NVM (Node Version Manager) in Hostinger's Home directory
+    // Check NVM (Node Version Manager) in Hostinger's Home directory first
     $home = getenv('HOME');
     if ($home) {
         $nvmDir = $home . '/.nvm/versions/node';
-        if (is_dir($nvmDir)) {
-            $versions = glob($nvmDir . '/*/bin/node');
+        if (@is_dir($nvmDir)) {
+            $versions = @glob($nvmDir . '/*/bin/node');
             if (!empty($versions)) {
                 $latest = end($versions); // Get the latest installed version
-                if (file_exists($latest) && is_executable($latest)) {
-                    return $latest;
+                if ($latest) {
+                    $paths[] = $latest;
                 }
             }
         }
     }
 
-    // 3. Check standard global hosting installation paths
-    $commonPaths = [
-        '/usr/local/bin/node',
-        '/usr/bin/node',
-        '/bin/node',
-        '/opt/node/bin/node',
-        '/opt/cpanel/ea-nodejs18/bin/node',
-        '/opt/cpanel/ea-nodejs20/bin/node'
-    ];
+    // Add standard binary paths
+    $paths[] = 'node';
+    $paths[] = '/usr/local/bin/node';
+    $paths[] = '/usr/bin/node';
+    $paths[] = '/bin/node';
+    $paths[] = '/opt/node/bin/node';
+    $paths[] = '/opt/cpanel/ea-nodejs18/bin/node';
+    $paths[] = '/opt/cpanel/ea-nodejs20/bin/node';
 
-    foreach ($commonPaths as $path) {
-        if (file_exists($path) && is_executable($path)) {
+    // 2. Test each path via shell command execution to bypass PHP open_basedir restrictions!
+    foreach ($paths as $path) {
+        // Run "node -v" to see if it executes and outputs a valid Node version
+        $output = @shell_exec($path . ' -v 2>&1');
+        if ($output && preg_match('/^v\d+/', trim($output))) {
             return $path;
         }
     }
 
-    // 4. Default fallback (works globally on local development)
+    // 3. Fallback to just "node"
     return 'node';
 }
 
 $nodeBinary = findNodeBinary();
-$command = escapeshellcmd($nodeBinary) . ' run-all.js 2>&1';
+$command = $nodeBinary . ' run-all.js 2>&1';
 
 $descriptorspec = [
     0 => ["pipe", "r"], // stdin
