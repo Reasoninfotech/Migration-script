@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { shopifyRequest, fetchPaginated } from "./api.js";
+import { shopifyRequest, fetchPaginated, setMetafields } from "./api.js";
 import { loadMappings, saveMappings } from "./migrate-metaobjects.js";
 
 async function getProducts(shop, token) {
@@ -259,7 +259,11 @@ async function getTargetLocationId(shop, token) {
     const res = await shopifyRequest(shop, token, query);
     return res.locations?.edges?.[0]?.node?.id || null;
   } catch (err) {
-    console.error("Error fetching target location ID:", err.message);
+    if (err.message.includes("Access denied")) {
+      console.log(`ℹ️ Inventory location access not configured (requires 'read_locations' scope). Skipping inventory migration.`);
+    } else {
+      console.log(`ℹ️ Could not fetch locations: ${err.message}. Skipping inventory migration.`);
+    }
     return null;
   }
 }
@@ -295,7 +299,7 @@ export async function run() {
     // Check if product already exists on target store by handle
     const existingTargetProduct = await findProductOnTarget(target.shop, target.accessToken, item.handle);
     if (existingTargetProduct) {
-      console.log(`🔗 Product '${item.title}' already exists on target. Recording ID mappings.`);
+      console.log(`🔗 Product '${item.title}' already exists on target. Recording ID mappings and syncing metafields...`);
       mappings[sourceProductId] = existingTargetProduct.id;
       
       // Record variant ID mappings if SKUs match
@@ -310,6 +314,35 @@ export async function run() {
       }
 
       saveMappings(mappings);
+
+      // Resolve and sync metafields for the existing product
+      const productMetafields = item.metafields.edges.map(e => {
+        const mf = e.node;
+        let val = mf.value;
+
+        // Check if value contains GIDs that we mapped (like Metaobject IDs)
+        const gidRegex = /gid:\/\/shopify\/[A-Za-z0-9]+\/\d+/g;
+        const matches = val.match(gidRegex);
+        if (matches) {
+          for (const oldGid of matches) {
+            if (mappings[oldGid]) {
+              val = val.replace(oldGid, mappings[oldGid]);
+            }
+          }
+        }
+
+        return {
+          namespace: mf.namespace,
+          key: mf.key,
+          value: val,
+          type: mf.type
+        };
+      });
+
+      if (productMetafields.length > 0) {
+        await setMetafields(target.shop, target.accessToken, existingTargetProduct.id, productMetafields);
+      }
+
       continue;
     }
 

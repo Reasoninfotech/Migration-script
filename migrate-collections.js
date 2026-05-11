@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { shopifyRequest, fetchPaginated } from "./api.js";
+import { shopifyRequest, fetchPaginated, setMetafields } from "./api.js";
 import { loadMappings, saveMappings } from "./migrate-metaobjects.js";
 
 async function getCollections(shop, token) {
@@ -21,6 +21,17 @@ async function getCollections(shop, token) {
       edges {
         node {
           id
+        }
+      }
+    }
+    metafields(first: 100) {
+      edges {
+        node {
+          id
+          namespace
+          key
+          value
+          type
         }
       }
     }
@@ -92,6 +103,13 @@ async function addProductsToCollection(shop, token, collectionId, productIds) {
     const result = res.collectionAddProducts;
 
     if (result.userErrors && result.userErrors.length > 0) {
+      // If products are already added/members of the collection, print a clean info message instead of a red error
+      const isAlreadyAdded = result.userErrors.some(err => err.message.includes("Error adding"));
+      if (isAlreadyAdded) {
+        console.log(`ℹ️ Products are already members of collection '${collectionId}'.`);
+        return true;
+      }
+
       console.error(`❌ User errors adding products to collection '${collectionId}':`);
       result.userErrors.forEach(err => {
         console.error(`  - ${err.field.join(".")}: ${err.message}`);
@@ -149,15 +167,41 @@ export async function run() {
     if (!targetCollectionId) {
       console.log(`Creating collection '${item.title}'...`);
 
-      // 1. Build CollectionInput
+      // 1. Resolve and map collection metafield references (e.g. Metaobjects)
+      const collectionMetafields = item.metafields ? item.metafields.edges.map(e => {
+        const mf = e.node;
+        let val = mf.value;
+
+        // Map any GIDs inside the metafield value (e.g. Metaobject reference mappings)
+        const gidRegex = /gid:\/\/shopify\/[A-Za-z0-9]+\/\d+/g;
+        const matches = val.match(gidRegex);
+        if (matches) {
+          for (const oldGid of matches) {
+            if (mappings[oldGid]) {
+              console.log(`  🔄 Mapping metafield reference in collection: ${oldGid} -> ${mappings[oldGid]}`);
+              val = val.replace(oldGid, mappings[oldGid]);
+            }
+          }
+        }
+
+        return {
+          namespace: mf.namespace,
+          key: mf.key,
+          value: val,
+          type: mf.type
+        };
+      }) : [];
+
+      // 2. Build CollectionInput
       const collectionInput = {
         title: item.title,
         descriptionHtml: item.descriptionHtml,
         handle: item.handle,
-        sortOrder: item.sortOrder
+        sortOrder: item.sortOrder,
+        metafields: collectionMetafields
       };
 
-      // 2. Add ruleSet if it is an automated collection
+      // 3. Add ruleSet if it is an automated collection
       if (item.ruleSet) {
         collectionInput.ruleSet = {
           appliedDisjunctively: item.ruleSet.appliedDisjunctively,
@@ -178,9 +222,38 @@ export async function run() {
         saveMappings(mappings);
       }
     } else {
-      console.log(`🔗 Collection '${item.title}' already exists on target. Recording ID mapping.`);
+      console.log(`🔗 Collection '${item.title}' already exists on target. Recording ID mapping and syncing metafields...`);
       mappings[sourceCollectionId] = targetCollectionId;
       saveMappings(mappings);
+
+      // Resolve and sync metafields for the existing collection
+      const collectionMetafields = item.metafields ? item.metafields.edges.map(e => {
+        const mf = e.node;
+        let val = mf.value;
+
+        // Map any GIDs inside the metafield value (e.g. Metaobject reference mappings)
+        const gidRegex = /gid:\/\/shopify\/[A-Za-z0-9]+\/\d+/g;
+        const matches = val.match(gidRegex);
+        if (matches) {
+          for (const oldGid of matches) {
+            if (mappings[oldGid]) {
+              console.log(`  🔄 Mapping metafield reference in collection: ${oldGid} -> ${mappings[oldGid]}`);
+              val = val.replace(oldGid, mappings[oldGid]);
+            }
+          }
+        }
+
+        return {
+          namespace: mf.namespace,
+          key: mf.key,
+          value: val,
+          type: mf.type
+        };
+      }) : [];
+
+      if (collectionMetafields.length > 0) {
+        await setMetafields(target.shop, target.accessToken, targetCollectionId, collectionMetafields);
+      }
     }
 
     // 4. For manual collections, map and add products

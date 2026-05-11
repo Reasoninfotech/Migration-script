@@ -141,3 +141,57 @@ export async function fetchPaginated(shop, token, connectionName, queryStr, vari
 
   return allNodes;
 }
+
+/**
+ * Sync / set metafields for any Shopify resource (Product, Collection, Metaobject, etc.)
+ * Uses the modern, efficient metafieldsSet GraphQL mutation.
+ */
+export async function setMetafields(shop, token, ownerId, metafields) {
+  if (!metafields || metafields.length === 0) return null;
+
+  const mutation = `
+    mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        metafields {
+          id
+          namespace
+          key
+          value
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    metafields: metafields.map(mf => ({
+      ownerId: ownerId,
+      namespace: mf.namespace,
+      key: mf.key,
+      value: mf.value,
+      type: mf.type
+    }))
+  };
+
+  try {
+    const res = await shopifyRequest(shop, token, mutation, variables);
+    const result = res.metafieldsSet;
+
+    if (result.userErrors && result.userErrors.length > 0) {
+      console.error(`❌ User errors syncing metafields for owner '${ownerId}':`);
+      result.userErrors.forEach(err => {
+        console.error(`  - ${err.field.join(".")}: ${err.message}`);
+      });
+      return null;
+    }
+
+    console.log(`✅ Successfully synced ${result.metafields.length} metafields for ${ownerId}.`);
+    return result.metafields;
+  } catch (err) {
+    console.error(`❌ Request error syncing metafields for owner '${ownerId}':`, err.message);
+    return null;
+  }
+}
