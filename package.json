@@ -1,0 +1,14 @@
+{
+  "name": "shopify-migration-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Scripts to migrate Shopify data including Metaobjects, Products, Metafields, and Collections",
+  "main": "run-all.js",
+  "scripts": {
+    "migrate:definitions": "node migrate-definitions.js",
+    "migrate:metaobjects": "node migrate-metaobjects.js",
+    "migrate:products": "node migrate-products.js",
+    "migrate:collections": "node migrate-collections.js",
+    "migrate:all": "node run-all.js"
+  }
+}
