@@ -28,40 +28,87 @@ function sendLogEvent($event, $data) {
 
 sendLogEvent('status', ['state' => 'running', 'message' => 'Spawning migration process...']);
 
+// Helper to execute a command via proc_open and return its trimmed stdout (safe from shell_exec/exec blocks)
+function executeViaProcOpen($cmd) {
+    $descriptorspec = [
+        1 => ["pipe", "w"],
+        2 => ["pipe", "w"]
+    ];
+    $process = @proc_open($cmd, $descriptorspec, $pipes);
+    if (is_resource($process)) {
+        $stdout = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($process);
+        return trim($stdout);
+    }
+    return '';
+}
+
+// Helper to test if a Node path is executable and valid using proc_open (bypasses PHP open_basedir checks)
+function testNodePath($path) {
+    $descriptorspec = [
+        1 => ["pipe", "w"],
+        2 => ["pipe", "w"]
+    ];
+    $process = @proc_open($path . ' -v', $descriptorspec, $pipes);
+    if (is_resource($process)) {
+        $stdout = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $code = proc_close($process);
+        if ($code === 0 && preg_match('/^v\d+/', trim($stdout))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Try to locate Node.js executable on the system dynamically (especially for Hostinger shared hosting environments)
 function findNodeBinary() {
-    // 1. Check for Hostinger NVM Node in Home Directory (100% safe from open_basedir)
-    $dirParts = explode('/', str_replace('\\', '/', __DIR__));
-    if (count($dirParts) > 2 && $dirParts[1] === 'home') {
-        $homeDir = '/' . $dirParts[1] . '/' . $dirParts[2];
-        $nvmDir = $homeDir . '/.nvm/versions/node';
-        if (@is_dir($nvmDir)) {
-            $versions = @glob($nvmDir . '/*/bin/node');
-            if (!empty($versions)) {
-                $latest = end($versions); // Get the latest installed version
-                if ($latest && @file_exists($latest)) {
-                    return $latest;
-                }
+    $paths = [];
+
+    // 1. Query the system where node is located using standard tools (via proc_open)
+    $which = executeViaProcOpen('which node');
+    if (!empty($which)) {
+        $paths[] = $which;
+    }
+
+    $whereis = executeViaProcOpen('whereis node');
+    if ($whereis) {
+        // Output format: "node: /usr/bin/node /usr/local/bin/node"
+        $parts = explode(' ', $whereis);
+        foreach ($parts as $part) {
+            $path = trim($part);
+            if (!empty($path) && $path !== 'node:' && !in_array($path, $paths)) {
+                $paths[] = $path;
             }
         }
     }
 
-    // 2. Only check system paths if open_basedir restrictions are NOT active
-    $openBaseDir = ini_get('open_basedir');
-    if (empty($openBaseDir)) {
-        $commonPaths = [
-            '/usr/local/bin/node',
-            '/usr/bin/node',
-            '/bin/node'
-        ];
-        foreach ($commonPaths as $path) {
-            if (@file_exists($path) && @is_executable($path)) {
-                return $path;
-            }
+    // 2. Add standard shared hosting Node installation candidate paths
+    $standardPaths = [
+        '/usr/local/bin/node',
+        '/usr/bin/node',
+        '/bin/node',
+        '/opt/node/bin/node',
+        '/opt/alt/alt-nodejs18/root/usr/bin/node',
+        '/opt/alt/alt-nodejs20/root/usr/bin/node'
+    ];
+    foreach ($standardPaths as $path) {
+        if (!in_array($path, $paths)) {
+            $paths[] = $path;
         }
     }
 
-    // 3. Default fallback (works globally on local development)
+    // 3. Test each candidate path. The first one that responds to "-v" successfully is our winner!
+    foreach ($paths as $path) {
+        if (testNodePath($path)) {
+            return $path;
+        }
+    }
+
+    // 4. Fallback to default
     return 'node';
 }
 
