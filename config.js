@@ -3,7 +3,7 @@ export const CONFIG = {
   source: {
     shop: "tg-work.myshopify.com",
     // Replace with your Source Store Admin API Access Token (starts with shpat_ or shpca_)
-    // accessToken: "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",
+    accessToken: "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",
     apiVersion: "2024-04"
   },
 
@@ -11,7 +11,7 @@ export const CONFIG = {
   target: {
     shop: "gk-work.myshopify.com",
     // Replace with your Target Store Admin API Access Token (starts with shpat_ or shpca_)
-    // accessToken: "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",
+    accessToken: "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",
     apiVersion: "2024-04"
   }
 };
