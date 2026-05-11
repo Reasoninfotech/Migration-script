@@ -214,33 +214,54 @@ document.addEventListener("DOMContentLoaded", () => {
         appendLogLine("🧹 Terminal logs cleared.", "system-msg");
     });
 
-    // 7b. Reset Migration Cache
+    // 7b. Reset Migration Cache (Custom Confirm Modal)
     const btnResetCache = document.getElementById("btn-reset-cache");
-    if (btnResetCache) {
-        btnResetCache.addEventListener("click", async () => {
-            if (confirm("Are you sure you want to reset the migration cache?\n\nThis will delete 'id-mappings.json' and force all products, collections, and metaobjects to migrate from scratch on your next run.")) {
-                try {
-                    const res = await fetch("reset-cache.php", { method: "POST" });
-                    const result = await res.json();
+    const confirmCacheModal = document.getElementById("confirm-cache-modal");
+    const btnConfirmCancel = document.getElementById("btn-confirm-cancel");
+    const btnConfirmReset = document.getElementById("btn-confirm-reset");
+
+    if (btnResetCache && confirmCacheModal) {
+        // Open Modal
+        btnResetCache.addEventListener("click", () => {
+            confirmCacheModal.classList.add("open");
+        });
+
+        // Close Modal on Cancel
+        btnConfirmCancel.addEventListener("click", () => {
+            confirmCacheModal.classList.remove("open");
+        });
+
+        // Close Modal on clicking outside the card
+        confirmCacheModal.addEventListener("click", (e) => {
+            if (e.target === confirmCacheModal) {
+                confirmCacheModal.classList.remove("open");
+            }
+        });
+
+        // Perform Reset Cache on Confirm
+        btnConfirmReset.addEventListener("click", async () => {
+            confirmCacheModal.classList.remove("open");
+            try {
+                const res = await fetch("reset-cache.php", { method: "POST" });
+                const result = await res.json();
+                
+                if (res.ok && result.success) {
+                    appendLogLine("🧹 Migration memory cache cleared! Next migration will run completely from scratch.", "system-msg");
                     
-                    if (res.ok && result.success) {
-                        appendLogLine("🧹 Migration memory cache cleared! Next migration will run completely from scratch.", "system-msg");
-                        
-                        const originalHTML = btnResetCache.innerHTML;
-                        btnResetCache.innerHTML = `<i data-lucide="check" style="color: var(--color-success)"></i> Cache Cleared`;
+                    const originalHTML = btnResetCache.innerHTML;
+                    btnResetCache.innerHTML = `<i data-lucide="check" style="color: var(--color-success)"></i> Cache Cleared`;
+                    lucide.createIcons();
+                    
+                    setTimeout(() => {
+                        btnResetCache.innerHTML = originalHTML;
                         lucide.createIcons();
-                        
-                        setTimeout(() => {
-                            btnResetCache.innerHTML = originalHTML;
-                            lucide.createIcons();
-                        }, 2000);
-                    } else {
-                        throw new Error(result.error || "Failed to delete file.");
-                    }
-                } catch (err) {
-                    appendLogLine(`❌ RESET CACHE ERROR: ${err.message}`, "log-error");
-                    alert("Error clearing cache: " + err.message);
+                    }, 2000);
+                } else {
+                    throw new Error(result.error || "Failed to delete file.");
                 }
+            } catch (err) {
+                appendLogLine(`❌ RESET CACHE ERROR: ${err.message}`, "log-error");
+                alert("Error clearing cache: " + err.message);
             }
         });
     }

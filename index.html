@@ -228,6 +228,28 @@
         </div>
     </div>
 
+    <!-- Custom Confirmation Modal -->
+    <div class="confirm-modal-overlay" id="confirm-cache-modal">
+        <div class="confirm-modal-card">
+            <div class="confirm-modal-header">
+                <div class="confirm-modal-icon warning">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <h3>Reset Migration Cache?</h3>
+            </div>
+            <div class="confirm-modal-body">
+                <p>Are you sure you want to reset the migration memory cache?</p>
+                <p class="confirm-modal-warning">This will delete <code>id-mappings.json</code> and force all products, collections, and metaobjects to migrate completely from scratch on your next run.</p>
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancel</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-reset">
+                    <i data-lucide="trash-2"></i> Yes, Reset Cache
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- App JavaScript -->
     <script src="app.js"></script>
     <script>
