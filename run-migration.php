@@ -28,9 +28,56 @@ function sendLogEvent($event, $data) {
 
 sendLogEvent('status', ['state' => 'running', 'message' => 'Spawning migration process...']);
 
-// Command to execute
-// Under Windows or Linux, "node" is standard.
-$command = 'node run-all.js 2>&1';
+// Try to locate Node.js executable on the system dynamically (especially for Hostinger shared hosting environments)
+function findNodeBinary() {
+    // 1. Try standard command lookups (non-Windows)
+    if (strpos(strtolower(PHP_OS), 'win') === false) {
+        $whichNode = shell_exec('which node 2>/dev/null');
+        if ($whichNode) {
+            $path = trim($whichNode);
+            if (!empty($path) && file_exists($path) && is_executable($path)) {
+                return $path;
+            }
+        }
+    }
+
+    // 2. Check NVM (Node Version Manager) in Hostinger's Home directory
+    $home = getenv('HOME');
+    if ($home) {
+        $nvmDir = $home . '/.nvm/versions/node';
+        if (is_dir($nvmDir)) {
+            $versions = glob($nvmDir . '/*/bin/node');
+            if (!empty($versions)) {
+                $latest = end($versions); // Get the latest installed version
+                if (file_exists($latest) && is_executable($latest)) {
+                    return $latest;
+                }
+            }
+        }
+    }
+
+    // 3. Check standard global hosting installation paths
+    $commonPaths = [
+        '/usr/local/bin/node',
+        '/usr/bin/node',
+        '/bin/node',
+        '/opt/node/bin/node',
+        '/opt/cpanel/ea-nodejs18/bin/node',
+        '/opt/cpanel/ea-nodejs20/bin/node'
+    ];
+
+    foreach ($commonPaths as $path) {
+        if (file_exists($path) && is_executable($path)) {
+            return $path;
+        }
+    }
+
+    // 4. Default fallback (works globally on local development)
+    return 'node';
+}
+
+$nodeBinary = findNodeBinary();
+$command = escapeshellcmd($nodeBinary) . ' run-all.js 2>&1';
 
 $descriptorspec = [
     0 => ["pipe", "r"], // stdin
