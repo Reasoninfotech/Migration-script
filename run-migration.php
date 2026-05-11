@@ -113,7 +113,7 @@ function findNodeBinary() {
 }
 
 $nodeBinary = findNodeBinary();
-$command = $nodeBinary . ' --js-flags="--no-wasm-trap-handler" --max-old-space-size=512 run-all.js 2>&1';
+$command = $nodeBinary . ' run-all.js 2>&1';
 
 $descriptorspec = [
     0 => ["pipe", "r"], // stdin

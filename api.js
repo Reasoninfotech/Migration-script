@@ -1,4 +1,45 @@
 import { CONFIG } from "./config.js";
+import https from "https";
+
+/**
+ * Lightweight, native HTTPS fetch replacement to bypass Undici's WebAssembly memory allocations on restricted shared hosting
+ */
+function nativeFetch(url, options) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const reqOptions = {
+      method: options.method || "GET",
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      headers: options.headers || {}
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        resolve({
+          status: res.statusCode,
+          headers: {
+            get: (name) => res.headers[name.toLowerCase()]
+          },
+          text: async () => data
+        });
+      });
+    });
+
+    req.on("error", (err) => {
+      reject(err);
+    });
+
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
 
 /**
  * Generic GraphQL client for Shopify Admin API
@@ -15,7 +56,7 @@ export async function shopifyRequest(shop, token, query, variables = {}, apiVers
     throw new Error(`Invalid access token for ${shop}. Please configure config.js with actual tokens.`);
   }
 
-  const response = await fetch(url, {
+  const response = await nativeFetch(url, {
     method: "POST",
     headers: {
       "X-Shopify-Access-Token": token,
